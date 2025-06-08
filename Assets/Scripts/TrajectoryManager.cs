@@ -26,7 +26,7 @@ public class TrajectoryManager : MonoBehaviour {
             lr.useWorldSpace = true;
             lr.startWidth = 0.01f;
             lr.endWidth = 0.01f;
-            lr.alignment = LineAlignment.TransformZ;
+            lr.alignment = LineAlignment.View;
             lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lr.receiveShadows = false;
 

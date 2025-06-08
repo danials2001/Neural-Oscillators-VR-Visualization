@@ -16,15 +16,15 @@ public class TrajectoryInstance : MonoBehaviour {
     private float timer = 0f;
     private int currentIndex = 0;
     
-    public float joystickSensitivity = 1.0f;
+    public float joystickSensitivity = 0.2f;
     public float minSpeed = 0.1f;
     public float maxSpeed = 10.0f;
 
     private InputAction thumbstickY;
-
+    private float trajectoryPosition = 0f; // normalized 0 to 1 float scrub position
     void Awake() {
-        // Setup thumbstick Y axis (left hand)
-        thumbstickY = new InputAction(type: InputActionType.Value, binding: "<XRController>{LeftHand}/thumbstick/y");
+        // Right hand Y axis instead of left
+        thumbstickY = new InputAction(type: InputActionType.Value, binding: "<XRController>{RightHand}/thumbstick/y");
         thumbstickY.Enable();
     }
 
@@ -52,25 +52,32 @@ public class TrajectoryInstance : MonoBehaviour {
 
         float input = thumbstickY.ReadValue<float>();
 
-        // Deadzone filter
+        // Deadzone threshold
         if (Mathf.Abs(input) > 0.2f) {
-            timeScale += input * joystickSensitivity * Time.deltaTime;
-            timeScale = Mathf.Clamp(timeScale, minSpeed, maxSpeed);
-        }
-        timer += Time.deltaTime * timeScale;
-
-        while (currentIndex < points.Length - 2 && timer > points[currentIndex + 1].t) {
-            currentIndex++;
+            // Update normalized trajectory position based on input
+            trajectoryPosition += input * joystickSensitivity * Time.deltaTime;
+            trajectoryPosition = Mathf.Clamp01(trajectoryPosition); // Keep between 0 and 1
         }
 
-        var p0 = points[currentIndex];
-        var p1 = points[currentIndex + 1];
-        float alpha = Mathf.InverseLerp(p0.t, p1.t, timer);
+        // Map scrub position to an index in the points array
+        float targetTime = Mathf.Lerp(points[0].t, points[^1].t, trajectoryPosition);
+
+        // Find the correct segment
+        int idx = 0;
+        while (idx < points.Length - 2 && points[idx + 1].t < targetTime) {
+            idx++;
+        }
+
+        var p0 = points[idx];
+        var p1 = points[idx + 1];
+        float alpha = Mathf.InverseLerp(p0.t, p1.t, targetTime);
+
         marker.transform.position = Vector3.Lerp(GetPosition(p0), GetPosition(p1), alpha);
     }
+
     
     void OnGUI() {
-        GUI.Label(new Rect(10, 10, 300, 20), $"Speed: {timeScale:F2}x");
+        GUI.Label(new Rect(10, 10, 300, 20), $"Scrub Position: {trajectoryPosition:F2}");
     }
 
     void LoadTrajectory() {
