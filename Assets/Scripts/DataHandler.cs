@@ -20,7 +20,7 @@ public class DataHandler : MonoBehaviour {
     public float scale = 1.0f;
 
     void Start() {
-        string path = Path.Combine(Application.streamingAssetsPath, "trajectory_D0.json");
+        string path = Path.Combine(Application.streamingAssetsPath, "trajectory_D1.json");
         string json = File.ReadAllText(path);
         TrajectoryWrapper data = JsonUtility.FromJson<TrajectoryWrapper>(json);
 

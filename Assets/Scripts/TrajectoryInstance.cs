@@ -87,6 +87,7 @@ public class TrajectoryInstance : MonoBehaviour {
         if (lineRenderer == null || points == null) return;
 
         lineRenderer.positionCount = points.Length;
+
         for (int i = 0; i < points.Length; i++) {
             lineRenderer.SetPosition(i, GetPosition(points[i]));
         }
