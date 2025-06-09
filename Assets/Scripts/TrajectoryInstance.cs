@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem; // for new Input System
 using System.IO;
+using UnityEngine.XR.Interaction.Toolkit;
+
 public class TrajectoryInstance : MonoBehaviour {
     public string jsonFileName;
 
@@ -22,6 +24,11 @@ public class TrajectoryInstance : MonoBehaviour {
 
     private InputAction thumbstickY;
     private float trajectoryPosition = 0f; // normalized 0 to 1 float scrub position
+    
+    public GameObject infoPopupPrefab; // Assign in Inspector
+    private GameObject currentPopup;
+    private TrajectoryPoint currentPoint;
+
     void Awake() {
         // Right hand Y axis instead of left
         thumbstickY = new InputAction(type: InputActionType.Value, binding: "<XRController>{RightHand}/thumbstick/y");
@@ -32,6 +39,14 @@ public class TrajectoryInstance : MonoBehaviour {
         LoadTrajectory();
         DrawFullTrajectory();
         marker.transform.position = GetPosition(points[0]);
+        
+        // Marker UI handling
+        if (!marker.GetComponent<Collider>())
+            marker.AddComponent<SphereCollider>();
+        marker.AddComponent<XRSimpleInteractable>();
+
+        var interactable = marker.GetComponent<XRSimpleInteractable>();
+        interactable.selectEntered.AddListener(OnMarkerSelected);
         
         var trail = marker.GetComponent<TrailRenderer>();
         if (trail != null) {
@@ -97,6 +112,37 @@ public class TrajectoryInstance : MonoBehaviour {
 
         for (int i = 0; i < points.Length; i++) {
             lineRenderer.SetPosition(i, GetPosition(points[i]));
+        }
+    }
+    
+    void OnMarkerSelected(SelectEnterEventArgs args) {
+        if (infoPopupPrefab == null) return;
+
+        // Destroy existing popup if present
+        if (currentPopup) Destroy(currentPopup);
+
+        currentPopup = Instantiate(infoPopupPrefab);
+        currentPopup.transform.position = marker.transform.position + Vector3.up * 0.1f; // offset a bit above
+        currentPopup.transform.localScale = Vector3.one * 0.01f;
+        
+        var popup = currentPopup.GetComponent<InfoPopupController>();
+        currentPoint = points[currentIndex];
+        
+        // 🔍 Get material name (used for color label)
+        string colorName = "Unknown";
+        var renderer = marker.GetComponent<Renderer>();
+        if (renderer != null && renderer.material != null) {
+            colorName = renderer.material.name.Replace(" (Instance)", ""); // clean up Unity naming
+        }
+
+        if (popup != null) {
+            popup.SetText(
+                $"t = {currentPoint.t:F2}\n" +
+                $"v = {currentPoint.v:F2}\n" +
+                $"n = {currentPoint.n:F2}\n" +
+                $"e = {currentPoint.e:F2}\n" +
+                $"color = {colorName}"
+            );
         }
     }
 }

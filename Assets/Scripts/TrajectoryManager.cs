@@ -6,6 +6,8 @@ public class TrajectoryManager : MonoBehaviour {
     public GameObject markerPrefab;  // Your sphere prefab (with a Renderer)
     public Material[] lineMaterials; // Array of materials for variety, or a single material
     public GameObject lineRendererPrefab; // GameObject that has a LineRenderer component
+    public GameObject infoPopupPrefab; // Assign in Inspector
+
 
     void Start() {
         string dataPath = Application.streamingAssetsPath;
@@ -51,6 +53,7 @@ public class TrajectoryManager : MonoBehaviour {
             // Attach the trajectory instance script that handles animation.
             // Assuming the script is added dynamically as done before:
             TrajectoryInstance instance = container.AddComponent<TrajectoryInstance>();
+            instance.infoPopupPrefab = infoPopupPrefab;
             instance.jsonFileName = fileName;
             instance.marker = marker;
             instance.lineRenderer = lr;
