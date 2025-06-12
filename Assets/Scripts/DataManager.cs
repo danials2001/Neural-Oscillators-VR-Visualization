@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
 using System.Linq;
+using TMPro;
 
 public class DataManager : MonoBehaviour
 {
@@ -13,8 +14,8 @@ public class DataManager : MonoBehaviour
     private List<LandscapePoint> landscapeData;
 
     [Header("UI")]
-    public Dropdown datasetDropdown;
-    public Text infoText;
+    public TMP_Dropdown  datasetDropdown;
+    public TextMeshPro infoText;
 
     [Header("Visualization Modes")]
     public GameObject individualMode;
@@ -43,6 +44,9 @@ public class DataManager : MonoBehaviour
     {
         LoadAvailableDatasets();
         LoadLandscapeData();
+        
+        SetVisualizationMode(0); // 0 = individualMode, 1 = comparisonMode, 2 = landscapeMode
+
     }
 
     void LoadAvailableDatasets()
@@ -54,7 +58,7 @@ public class DataManager : MonoBehaviour
         foreach (string file in files)
         {
             string filename = Path.GetFileNameWithoutExtension(file);
-            datasetDropdown.options.Add(new Dropdown.OptionData(filename));
+            datasetDropdown.options.Add(new TMP_Dropdown.OptionData(filename));
         }
 
         datasetDropdown.onValueChanged.AddListener(OnDatasetSelected);

@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
-
+using TMPro;
 public class ComparisonVisualizer : MonoBehaviour
 {
     [Header("Layout")]
@@ -9,12 +9,15 @@ public class ComparisonVisualizer : MonoBehaviour
     public float separation = 5f;
     
     [Header("UI")]
-    public Text leftLabel;
-    public Text rightLabel;
-    public Text comparisonStats;
+    public TMP_Text leftLabel;
+    public TMP_Text rightLabel;
+    public TMP_Text comparisonStats;
     
     private NeuronVisualizer leftVisualizer;
     private NeuronVisualizer rightVisualizer;
+    
+    [Header("Prefab")]
+    public GameObject neuronVisualizerPrefab;  // Assign in inspector
     
     void Start()
     {
@@ -22,19 +25,20 @@ public class ComparisonVisualizer : MonoBehaviour
         CreateSideBySideVisualizers();
     }
     
+
     void CreateSideBySideVisualizers()
     {
-        // Left side (e.g., Deterministic)
-        GameObject leftViz = new GameObject("LeftVisualizer");
-        leftViz.transform.SetParent(leftSide);
-        leftViz.transform.localPosition = new Vector3(-separation/2, 0, 0);
-        leftVisualizer = leftViz.AddComponent<NeuronVisualizer>();
-        
-        // Right side (e.g., Stochastic)
-        GameObject rightViz = new GameObject("RightVisualizer");
-        rightViz.transform.SetParent(rightSide);
-        rightViz.transform.localPosition = new Vector3(separation/2, 0, 0);
-        rightVisualizer = rightViz.AddComponent<NeuronVisualizer>();
+        // Left side (Deterministic)
+        GameObject leftViz = Instantiate(neuronVisualizerPrefab, leftSide);
+        leftViz.name = "LeftVisualizer";
+        leftViz.transform.localPosition = new Vector3(-separation / 2f, 0, 0);
+        leftVisualizer = leftViz.GetComponent<NeuronVisualizer>();
+
+        // Right side (Stochastic)
+        GameObject rightViz = Instantiate(neuronVisualizerPrefab, rightSide);
+        rightViz.name = "RightVisualizer";
+        rightViz.transform.localPosition = new Vector3(separation / 2f, 0, 0);
+        rightVisualizer = rightViz.GetComponent<NeuronVisualizer>();
     }
     
 public void LoadComparison(float D_value, float alpha_value)

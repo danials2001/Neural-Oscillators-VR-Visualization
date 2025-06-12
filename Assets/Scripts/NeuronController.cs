@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -10,8 +11,10 @@ public class NeuronController : MonoBehaviour
     // Visual components
     private Renderer neuronRenderer;
     private Transform visualTransform;
+    public TextMeshPro SharedInfoText;
+    
     private GameObject infoPanel;
-    private TextMeshProUGUI infoText;
+    private TextMeshPro infoText;
     
     // Effects
     private ParticleSystem desyncEffect;
@@ -20,13 +23,20 @@ public class NeuronController : MonoBehaviour
     // States
     private bool isHovered = false;
     private bool isSelected = false;
-    private Vector3 basePosition;
+    public Vector3 basePosition;
     private Color baseColor;
     
     // Animation
     private float hoverScale = 1.5f;
     private float pulseSpeed = 2f;
     private float desyncRiseHeight = 2f;
+    private Vector3 baseScale;
+    
+    // Animation parameters
+    private float spikeTimer = 0;
+    private float controlResponseTimer = 0;
+    private bool hasDesynced = false;
+
     
     public void Initialize(NeuronData data, int index)
     {
@@ -35,67 +45,180 @@ public class NeuronController : MonoBehaviour
         
         // Cache components
         neuronRenderer = GetComponent<Renderer>();
-        visualTransform = transform.GetChild(0); // Assuming visual is first child
+        visualTransform = transform; // Assuming visual is first child
         basePosition = transform.localPosition;
         baseColor = neuronRenderer.material.color;
+        baseScale = visualTransform.localScale;
+
         
         // Create info panel
-        CreateInfoPanel();
+        // CreateInfoPanel();
         
         // Create effects
         CreateEffects();
         
         // Make interactable
-        gameObject.layer = LayerMask.NameToLayer("XRInteractable");
+        // gameObject.layer = LayerMask.NameToLayer("XRInteractable");
         
         // Add XR components if needed
-        if (!GetComponent<UnityEngine.XR.Interaction.Toolkit.XRGrabInteractable>())
+        if (!TryGetComponent(out UnityEngine.XR.Interaction.Toolkit.XRSimpleInteractable interactable))
         {
-            var grabInteractable = gameObject.AddComponent<UnityEngine.XR.Interaction.Toolkit.XRGrabInteractable>();
-            grabInteractable.movementType = UnityEngine.XR.Interaction.Toolkit.XRBaseInteractable.MovementType.VelocityTracking;
+            interactable = gameObject.AddComponent<UnityEngine.XR.Interaction.Toolkit.XRSimpleInteractable>();
+
+            // Register XR interaction callbacks
+            interactable.hoverEntered.AddListener(args => OnHover(true));
+            interactable.hoverExited.AddListener(args => OnHover(false));
+            interactable.selectEntered.AddListener(args => OnSelect());
         }
     }
     
     void CreateInfoPanel()
     {
-        // Create canvas for info
+        // Create canvas
         GameObject canvasObj = new GameObject("InfoCanvas");
         canvasObj.transform.SetParent(transform);
         canvasObj.transform.localPosition = Vector3.up * 0.5f;
-        
+
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.GetComponent<RectTransform>().sizeDelta = new Vector2(2, 1);
-        canvas.transform.localScale = Vector3.one * 0.01f;
-        
+
+        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+        scaler.dynamicPixelsPerUnit = 10;
+
+        canvasObj.AddComponent<GraphicRaycaster>();
+
+        // 💡 Make it wider (e.g., 0.8 width and 0.25 height)
+        RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(0.8f, 0.25f);
+        canvasObj.transform.localScale = Vector3.one * 0.01f; // small in world space
+
         // Background
         GameObject bg = new GameObject("Background");
-        bg.transform.SetParent(canvasObj.transform);
+        bg.transform.SetParent(canvasObj.transform, false);
         Image bgImage = bg.AddComponent<Image>();
         bgImage.color = new Color(0, 0, 0, 0.8f);
+
         RectTransform bgRect = bg.GetComponent<RectTransform>();
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
-        bgRect.sizeDelta = Vector2.zero;
-        bgRect.anchoredPosition = Vector2.zero;
-        
+        bgRect.offsetMin = Vector2.zero;
+        bgRect.offsetMax = Vector2.zero;
+
         // Text
         GameObject textObj = new GameObject("InfoText");
-        textObj.transform.SetParent(canvasObj.transform);
-        infoText = textObj.AddComponent<TextMeshProUGUI>();
+        textObj.transform.SetParent(canvasObj.transform, false);
+        infoText = textObj.AddComponent<TextMeshPro>();
         infoText.text = GenerateInfoText();
-        infoText.fontSize = 24;
+        infoText.fontSize = 2.5f;
         infoText.color = Color.white;
         infoText.alignment = TextAlignmentOptions.Center;
-        
+
         RectTransform textRect = textObj.GetComponent<RectTransform>();
         textRect.anchorMin = Vector2.zero;
         textRect.anchorMax = Vector2.one;
-        textRect.sizeDelta = Vector2.zero;
-        textRect.anchoredPosition = Vector2.zero;
-        
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
         infoPanel = canvasObj;
         infoPanel.SetActive(false);
+    }
+    
+    public void TriggerSpikePulse()
+    {
+        if (spikeTimer <= 0)
+        {
+            spikeTimer = 0.2f;
+            StartCoroutine(SpikePulseCoroutine());
+        }
+    }
+    IEnumerator SpikePulseCoroutine()
+    {
+        // Scale pulse
+        Vector3 originalScale = visualTransform.localScale;
+        visualTransform.localScale = originalScale * 1.3f;
+
+        // Light pulse
+        if (pulseLight != null)
+        {
+            pulseLight.intensity = 2f;
+        }
+
+        // Particle burst
+        /*if (spikeParticles != null)
+        {
+            spikeParticles.Emit(10);
+        }*/
+
+        // Animate back
+        float timer = 0;
+        while (timer < 0.2f)
+        {
+            timer += Time.deltaTime;
+            float t = timer / 0.2f;
+
+            visualTransform.localScale = Vector3.Lerp(
+                originalScale * 1.3f,
+                originalScale,
+                t
+            );
+
+            if (pulseLight != null)
+            {
+                pulseLight.intensity = Mathf.Lerp(2f, 0f, t);
+            }
+
+            yield return null;
+        }
+
+        spikeTimer = 0;
+    }
+
+    public void TriggerDesyncEffect()
+    {
+        if (!hasDesynced)
+        {
+            hasDesynced = true;
+
+            // Particle burst
+            if (desyncEffect != null)
+            {
+                desyncEffect.Emit(50);
+            }
+
+            // Permanent color shift
+            baseColor = Color.Lerp(baseColor, Color.red, 0.3f);
+
+            // Add persistent glow
+            neuronRenderer.material.EnableKeyword("_EMISSION");
+        }
+    }
+
+    public void ShowControlResponse(float magnitude)
+    {
+        controlResponseTimer = magnitude;
+
+        /*// Visual feedback for control application
+        if (controlRing != null)
+        {
+            controlRing.SetActive(true);
+            controlRing.transform.localScale = Vector3.one * magnitude * 2f;
+        }*/
+    }
+
+    public void UpdateDivergenceGlow(float divergence, float maxDivergence)
+    {
+        float intensity = divergence / maxDivergence;
+
+        // Set emission based on divergence
+        if (neuronRenderer.material.HasProperty("_EmissionColor"))
+        {
+            Color emission = baseColor * intensity * 2f;
+            neuronRenderer.material.SetColor("_EmissionColor", emission);
+        }
+
+        // Scale slightly based on divergence
+        float scaleBoost = 1f + intensity * 0.2f;
+        visualTransform.localScale = Vector3.one * scaleBoost;
     }
     
     void CreateEffects()
@@ -143,31 +266,61 @@ public class NeuronController : MonoBehaviour
     public void UpdateVisualization(int timeIndex, float currentTime)
     {
         if (neuronData == null) return;
-        
-        // Update position based on voltage
+
+        // --- Voltage -> Height ---
         float voltage = neuronData.V_wcwn[timeIndex];
-        float normalizedV = (voltage + 80f) / 60f; // Normalize roughly -80 to -20mV
-        
-        // Vertical displacement based on voltage
+        float normalizedV = (voltage + 80f) / 60f;
+
         Vector3 newPos = basePosition;
         newPos.y = normalizedV * 0.5f;
-        
-        // Add desync displacement
+
+        // --- Gating variable (n) -> XY offset (optional phase-space) ---
+        if (neuronData.n_wcwn != null && timeIndex < neuronData.n_wcwn.Length)
+        {
+            float n = neuronData.n_wcwn[timeIndex];
+            newPos.x += (n - 0.5f) * 0.1f;
+            newPos.z += (n - 0.5f) * 0.1f;
+        }
+
+        // --- Desync lift effect ---
         if (currentTime > neuronData.desync_time)
         {
             float timeSinceDesync = currentTime - neuronData.desync_time;
-            float rise = Mathf.Min(timeSinceDesync / 1000f, 1f) * desyncRiseHeight;
+            float rise = Mathf.Clamp01(timeSinceDesync / 1000f) * desyncRiseHeight;
             newPos.y += rise;
         }
-        
+
+        // --- Smooth movement ---
         transform.localPosition = Vector3.Lerp(transform.localPosition, newPos, Time.deltaTime * 5f);
-        
-        // Pulse on spike (simple threshold detection)
+
+        // --- Emission color from divergence ---
+        if (neuronData.divergence != null && timeIndex < neuronData.divergence.Length)
+        {
+            float div = neuronData.divergence[timeIndex];
+            float intensity = Mathf.Clamp01(div / 10f);  // adjust scale if needed
+            if (neuronRenderer.material.HasProperty("_EmissionColor"))
+            {
+                neuronRenderer.material.SetColor("_EmissionColor", baseColor * intensity);
+            }
+        }
+
+        // --- Control pulse (optional visual cue) ---
+        if (neuronData.control_count > 0)  // if applicable
+        {
+            float controlMag = Mathf.Abs(neuronData.control_count);  // placeholder if not indexed
+            if (controlMag > 0.1f)
+            {
+                ShowControlResponse(controlMag);
+            }
+        }
+
+        // --- Spike flash ---
         if (voltage > 0)
         {
             StartCoroutine(SpikePulse());
         }
     }
+
     
     System.Collections.IEnumerator SpikePulse()
     {
@@ -187,25 +340,27 @@ public class NeuronController : MonoBehaviour
     public void OnHover(bool hovering)
     {
         isHovered = hovering;
-        
+
         // Scale effect
         float targetScale = hovering ? hoverScale : 1f;
-        visualTransform.localScale = Vector3.one * targetScale;
-        
-        // Show info panel
-        if (infoPanel != null)
-        {
-            infoPanel.SetActive(hovering);
-        }
-        
+        visualTransform.localScale = baseScale * targetScale;
+
         // Highlight effect
         if (hovering)
         {
             neuronRenderer.material.SetColor("_EmissionColor", baseColor * 2f);
+            if (SharedInfoText != null)
+            {
+                SharedInfoText.text = GenerateInfoText();
+            }
         }
         else
         {
             neuronRenderer.material.SetColor("_EmissionColor", Color.black);
+            if (SharedInfoText != null)
+            {
+                SharedInfoText.text = ""; // Clear text when no longer hovered
+            }
         }
     }
     
@@ -223,6 +378,8 @@ public class NeuronController : MonoBehaviour
             // Make trajectory more prominent
         }
     }
+    
+    
     
     public void ShowDesyncEffect(float timeSinceDesync)
     {

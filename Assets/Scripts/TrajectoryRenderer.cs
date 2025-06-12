@@ -137,6 +137,65 @@ public class TrajectoryRenderer : MonoBehaviour
         // You'd need a second LineRenderer for WOCWN here
     }
     
+    /*
+    public void UpdateTimePosition(int timeIndex)
+    {
+        if (currentPositionMarker == null)
+        {
+            // Create a sphere to show current position
+            currentPositionMarker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            currentPositionMarker.transform.parent = transform;
+            currentPositionMarker.transform.localScale = Vector3.one * 0.15f;
+
+            // Make it glow
+            Renderer r = currentPositionMarker.GetComponent<Renderer>();
+            r.material = new Material(Shader.Find("Unlit/Color"));
+            r.material.color = Color.yellow;
+        }
+
+        // Move marker to current position
+        if (timeIndex < lineRenderer.positionCount)
+        {
+            Vector3 currentPos = lineRenderer.GetPosition(timeIndex);
+            currentPositionMarker.transform.position = currentPos;
+
+            // Pulse effect
+            float pulse = 1f + Mathf.Sin(Time.time * 5f) * 0.2f;
+            currentPositionMarker.transform.localScale = Vector3.one * 0.15f * pulse;
+        }
+
+        // Fade trajectory based on time
+        if (trajectoryMode == 3) // Divergence mode
+        {
+            UpdateDivergenceColors(timeIndex);
+        }
+    }*/
+
+    void UpdateDivergenceColors(int currentTime)
+    {
+        // Create gradient showing past (faded) to present (bright)
+        Gradient timeGradient = new Gradient();
+        GradientColorKey[] colorKeys = new GradientColorKey[3];
+        GradientAlphaKey[] alphaKeys = new GradientAlphaKey[3];
+
+        // Past - faded
+        colorKeys[0] = new GradientColorKey(Color.gray, 0.0f);
+        alphaKeys[0] = new GradientAlphaKey(0.3f, 0.0f);
+
+        // Present - bright
+        float currentT = (float)currentTime / lineRenderer.positionCount;
+        colorKeys[1] = new GradientColorKey(Color.yellow, currentT);
+        alphaKeys[1] = new GradientAlphaKey(1.0f, currentT);
+
+        // Future - invisible
+        colorKeys[2] = new GradientColorKey(Color.gray, 1.0f);
+        alphaKeys[2] = new GradientAlphaKey(0.1f, 1.0f);
+
+        timeGradient.SetKeys(colorKeys, alphaKeys);
+        lineRenderer.colorGradient = timeGradient;
+    }
+
+    
     void ShowDivergence()
     {
         Vector3[] positions = new Vector3[neuronData.divergence.Length];
